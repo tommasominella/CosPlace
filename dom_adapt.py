@@ -9,13 +9,15 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+import torchvision
+from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor
 from tqdm import tqdm
 from pathlib import Path
 
 #from data import MNISTM
-from models import Net
-from utils import GrayscaleToRgb, GradientReversal
+from modello_dom import Net
+from utils_dom import GrayscaleToRgb, GradientReversal
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -35,14 +37,32 @@ def main(args):
         nn.ReLU(),
         nn.Linear(20, 1)
     ).to(device)
+    
+    # Define transforms for training phase
+train_transform = transforms.Compose([transforms.Resize(256),      # Resizes short size of the PIL image to 256
+                                      transforms.CenterCrop(224),  # Crops a central square patch of the image
+                                                                   # 224 because torchvision's AlexNet needs a 224x224 input!
+                                                                   # Remember this when applying different transformations, otherwise you get an error
+                                      transforms.ToTensor(), # Turn PIL Image to torch.Tensor
+                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # Normalizes tensor with mean and standard deviation
+])
+# Define transforms for the evaluation phase
+eval_transform = transforms.Compose([transforms.Resize(256),
+                                      transforms.CenterCrop(224),
+                                      transforms.ToTensor(),
+                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))                                    
+])
+
+# Read each domain as a pytorch Dataset with Imagefolder
+source_dataset = torchvision.datasets.ImageFolder(DATA_DIR+"/train_domadapt", transform=train_transform) # SOURCE DOMAIN
+target_dataset = torchvision.datasets.ImageFolder(DATA_DIR+"/target", transform=eval_transform) # TARGET DOMAIN
+
 
     half_batch = args.batch_size // 2
-    source_dataset = MNIST(config.DATA_DIR/'mnist', train=True, download=True,
-                          transform=Compose([GrayscaleToRgb(), ToTensor()]))
+    
     source_loader = DataLoader(source_dataset, batch_size=half_batch,
                                shuffle=True, num_workers=1, pin_memory=True)
     
-    target_dataset = MNISTM(train=False)
     target_loader = DataLoader(target_dataset, batch_size=half_batch,
                                shuffle=True, num_workers=1, pin_memory=True)
 
