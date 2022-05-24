@@ -9,18 +9,17 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor
 from tqdm import tqdm
+from pathlib import Path
 
-import config
-from data import MNISTM
+#from data import MNISTM
 from models import Net
 from utils import GrayscaleToRgb, GradientReversal
 
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+DATA_DIR = Path('C:\Users\Utente\Desktop\Politecnico\Machine learning and Deep learning\small')
 
 def main(args):
     model = Net().to(device)
