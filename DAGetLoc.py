@@ -37,7 +37,7 @@ class DAGeoLocNet(nn.Module):
 
     def forward(self, x, alpha = None):
         x = self.backbone(x)
-        if alpha is not None:
+        if alpha is not None: #gradient reversal
                 x_rev = RevGrad(alpha = alpha, x)
                 DA_out = self.DA_aggregation(x_rev)
                 return DA_out
