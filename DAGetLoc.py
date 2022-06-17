@@ -2,6 +2,7 @@ import torch
 import logging
 import torchvision
 from torch import nn
+from pytorch_revgrad import RevGrad
 
 from model.layers import Flatten, L2Norm, GeM
 
@@ -14,7 +15,7 @@ CHANNELS_NUM_IN_LAST_CONV = {
     }
 
 
-class GeoLocalizationNet(nn.Module):
+class DAGeoLocNet(nn.Module):
     def __init__(self, backbone, fc_output_dim):
         super().__init__()
         self.backbone, features_dim = get_backbone(backbone)
@@ -25,11 +26,25 @@ class GeoLocalizationNet(nn.Module):
                 nn.Linear(features_dim, fc_output_dim),
                 L2Norm()
             )
-    
-    def forward(self, x):
+        self.DA_aggregation = nn.Sequential(               
+                L2Norm(),
+                GeM(),
+                Flatten(),
+                nn.Linear(features_dim, 2),
+                L2Norm()
+            )
+   
+
+    def forward(self, x, alpha = None):
         x = self.backbone(x)
-        x = self.aggregation(x)
-        return x
+        if alpha is not None:
+                x_rev = RevGrad(alpha = alpha, x)
+                DA_out = self.DA_aggregation(x_rev)
+                return DA_out
+        else:
+                x = self.aggregation(x)
+                return x
+
 
 
 def get_backbone(backbone_name):
