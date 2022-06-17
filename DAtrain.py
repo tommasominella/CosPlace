@@ -9,6 +9,7 @@ import torchvision.transforms as T
 torch.backends.cudnn.benchmark= True  # Provides a speedup
 
 from DAGeoLoc import DAGeoLocNet
+from DA_TrainDataset import DATrainDataset
 import test
 import util
 import parser
@@ -44,7 +45,7 @@ model = model.to(args.device).train()
 criterion = torch.nn.CrossEntropyLoss()
 model_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-#### Datasets
+#### Datasets "classico"
 groups = [TrainDataset(args, args.train_set_folder, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
                        current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)]
 # Each group has its own classifier, which depends on the number of classes in the group
@@ -60,6 +61,20 @@ test_ds = TestDataset(args.test_set_folder, queries_folder="queries_v1",
                       positive_dist_threshold=args.positive_dist_threshold)
 logging.info(f"Validation set: {val_ds}")
 logging.info(f"Test set: {test_ds}")
+
+# Dataset giorno con label 1
+groups_day = [DATrainDataset(args, args.train_set_folder, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
+                       current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)]
+# Each group has its own classifier, which depends on the number of classes in the group
+classifiers_day = [cosface_loss.MarginCosineProduct(2, len(group)) for group in groups]
+classifiers_optimizers_day = [torch.optim.Adam(classifier.parameters(), lr=args.classifiers_lr) for classifier in classifiers]
+
+#Dataset notte con label 0
+groups_night = [DATrainDataset(args, /content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/toky_night/night, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
+                       current_group=n, min_images_per_class=args.min_images_per_class, night = True) for n in range(args.groups_num)]
+# Each group has its own classifier, which depends on the number of classes in the group
+classifiers_night = [cosface_loss.MarginCosineProduct(2, len(group)) for group in groups]
+classifiers_optimizers_night = [torch.optim.Adam(classifier.parameters(), lr=args.classifiers_lr) for classifier in classifiers]
 
 #### Resume
 if args.resume_train:
@@ -102,6 +117,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     classifiers[current_group_num] = classifiers[current_group_num].to(args.device)
     util.move_to_device(classifiers_optimizers[current_group_num], args.device)
     
+    # Dataloader classico    
     dataloader = commons.InfiniteDataLoader(groups[current_group_num], num_workers=args.num_workers,
                                             batch_size=args.batch_size, shuffle=True,
                                             pin_memory=(args.device=="cuda"), drop_last=True)
@@ -109,10 +125,36 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     dataloader_iterator = iter(dataloader)
     model = model.train()
     
+    # Dataloader giorno
+    dataloader_day = commons.InfiniteDataLoader(groups_day[current_group_num], num_workers=args.num_workers,
+                                            batch_size=args.batch_size, shuffle=True,
+                                            pin_memory=(args.device=="cuda"), drop_last=True)
+    
+    dataloader_iterator_day = iter(dataloader_day)
+    model_day = model.train()
+    
+    # Dataloader notte
+    dataloader_night = commons.InfiniteDataLoader(groups_night[current_group_num], num_workers=args.num_workers,
+                                            batch_size=args.batch_size, shuffle=True,
+                                            pin_memory=(args.device=="cuda"), drop_last=True)
+    
+    dataloader_iterator_night = iter(dataloader_night)
+    model_night = model.train()
+    
+    
     epoch_losses = np.zeros((0,1), dtype=np.float32)
-    for iteration in tqdm(range(args.iterations_per_epoch), ncols=100):
+    for iteration in tqdm(range(args.iterations_per_epoch), ncols=100):        
+        # imaes, target "classico"
         images, targets, _ = next(dataloader_iterator)
         images, targets = images.to(args.device), targets.to(args.device)
+        
+        #images, target day
+        images_day, targets_day, _ = next(dataloader_iterator_day)
+        images_day, targets_day = images_day.to(args.device), targets_day.to(args.device)
+        
+        #images,target night
+        images_night, targets_night, _ = next(dataloader_iterator_night)
+        images_night, targets_night = images_night.to(args.device), targets_night.to(args.device)
         
         if args.augmentation_device == "cuda":
             images = gpu_augmentation(images)
@@ -121,11 +163,24 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
         classifiers_optimizers[current_group_num].zero_grad()
         
         if not args.use_amp16:
+            
+            # loss classica
             descriptors = model(images)
             output = classifiers[current_group_num](descriptors, targets)
             loss = criterion(output, targets)
             loss.backward()
             
+            #loss day
+            descriptors_day = model(images_day, alpha = 0.05)
+            output_day = classifiers_day[current_group_num](descriptors_day, targets_day)
+            loss_day = criterion(output_day, targets_day)
+            loss_day.backward()
+            
+            #loss night
+            descriptors_night = model(images_night, alpha = 0.05)
+            output_night = classifiers_night[current_group_num](descriptors_night, targets_night)
+            loss_night = criterion(output_night, targets_night)
+            loss_night.backward()
             
             epoch_losses = np.append(epoch_losses, loss.item())
             del loss, output, images
