@@ -16,9 +16,9 @@ import parser
 import commons
 import cosface_loss
 import augmentations
-from model import network
-from datasets.test_dataset import TestDataset
-from datasets.train_dataset import TrainDataset
+import network
+from test_dataset import TestDataset
+from train_dataset import TrainDataset
 
 args = parser.parse_arguments()
 start_time = datetime.now()
@@ -66,11 +66,16 @@ logging.info(f"Test set: {test_ds}")
 groups_day = [DATrainDataset(args, args.train_set_folder, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
                        current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)]
 # Each group has its own classifier, which depends on the number of classes in the group
-classifiers_day = [cosface_loss.MarginCosineProduct(2, len(group)) for group in groups]
+classifiers_day = [cosface_loss.MarginCosineProduct(len(group), 2) for group in groups]
 classifiers_optimizers_day = [torch.optim.Adam(classifier.parameters(), lr=args.classifiers_lr) for classifier in classifiers]
 
+logging.info(f"DAY Using {len(groups_day)} groups")
+logging.info(f"DAY The {len(groups_day)} groups have respectively the following number of classes {[len(g) for g in groups_day]}")
+#logging.info(f"DAY The {len(groups_day)} groups have respectively the following number of images {[g.get_images_num() for g in groups_day]}")
+
+
 #Dataset notte con label 0
-groups_night = [DATrainDataset(args, /content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/toky_night/night, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
+groups_night = [DATrainDataset(args, "/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/toky_night/night", M=args.M, alpha=args.alpha, N=args.N, L=args.L,
                        current_group=n, min_images_per_class=args.min_images_per_class, night = True) for n in range(args.groups_num)]
 # Each group has its own classifier, which depends on the number of classes in the group
 classifiers_night = [cosface_loss.MarginCosineProduct(2, len(group)) for group in groups]
@@ -131,15 +136,15 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
                                             pin_memory=(args.device=="cuda"), drop_last=True)
     
     dataloader_iterator_day = iter(dataloader_day)
-    model_day = model.train()
+    # model_day = model.train()
     
     # Dataloader notte
     dataloader_night = commons.InfiniteDataLoader(groups_night[current_group_num], num_workers=args.num_workers,
                                             batch_size=args.batch_size, shuffle=True,
-                                            pin_memory=(args.device=="cuda"), drop_last=True)
+                                            pin_memory=(args.device=="cuda"), drop_last=False)
     
     dataloader_iterator_night = iter(dataloader_night)
-    model_night = model.train()
+    # model_night = model.train()
     
     
     epoch_losses = np.zeros((0,1), dtype=np.float32)
