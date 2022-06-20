@@ -4,7 +4,7 @@ import torchvision
 from torch import nn
 from pytorch_revgrad import RevGrad
 
-from model.layers import Flatten, L2Norm, GeM
+from layers import Flatten, L2Norm, GeM
 
 
 CHANNELS_NUM_IN_LAST_CONV = {
@@ -38,7 +38,7 @@ class DAGeoLocNet(nn.Module):
     def forward(self, x, alpha = None):
         x = self.backbone(x)
         if alpha is not None: #gradient reversal
-                x_rev = RevGrad(alpha = alpha, x)
+                x_rev = RevGrad(x)
                 DA_out = self.DA_aggregation(x_rev)
                 return DA_out
         else:
