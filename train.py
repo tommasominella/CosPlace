@@ -44,6 +44,16 @@ model = model.to(args.device).train()
 criterion = torch.nn.CrossEntropyLoss()
 model_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
+## DATA AUGMENTATION start
+#path_aug = "/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/small/train"
+#pil_image_aug = (path_aug)
+#transformer = T.RandomPerspective(distortion_scale=0.6, p=1.0)
+#train_set_folder_aug = transformer(args.train_set_folder)
+#groups = [TrainDataset(args, train_set_folder_aug, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
+                       #current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)]
+## DATA AUGMENTATION end
+
+
 #### Datasets
 groups = [TrainDataset(args, args.train_set_folder, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
                        current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)]
