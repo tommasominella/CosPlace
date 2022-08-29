@@ -8,7 +8,7 @@ from datetime import datetime
 import torchvision.transforms as T
 torch.backends.cudnn.benchmark= True  # Provides a speedup
 
-from DAGetLoc import DAGeoLocNet
+from DAGeoLoc import DAGeoLocNet
 from DA_TrainDataset import DATrainDataset
 import test
 import util
