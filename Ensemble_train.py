@@ -8,7 +8,7 @@ from datetime import datetime
 import torchvision.transforms as T
 torch.backends.cudnn.benchmark= True  # Provides a speedup
 
-import test
+import test_ensemble
 import util
 import parser
 import commons
@@ -28,7 +28,7 @@ logging.info(f"Arguments: {args}")
 logging.info(f"The outputs are being saved in {output_folder}")
 
 #### Model
-model = Ensemble_network.GeoLocalizationNet(args.backbone, args.fc_output_dim)
+model = Ensemble_network.GeoLocalizationNet_Ensemble(args.backbone, args.fc_output_dim)
 
 logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
 
@@ -47,8 +47,13 @@ model_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 #### Datasets
 groups = [TrainDataset(args, args.train_set_folder, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
                        current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)]
+
 # Each group has its own classifier, which depends on the number of classes in the group
-classifiers = [cosface_loss.MarginCosineProduct(args.fc_output_dim, len(group)) for group in groups]
+## ENS-F:
+#classifiers = [cosface_loss.MarginCosineProduct((args.fc_output_dim), len(group)) for group in groups]
+## ENS-D:
+classifiers = [cosface_loss.MarginCosineProduct(1536, len(group)) for group in groups]
+
 classifiers_optimizers = [torch.optim.Adam(classifier.parameters(), lr=args.classifiers_lr) for classifier in classifiers]
 
 logging.info(f"Using {len(groups)} groups")
@@ -148,7 +153,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
                  f"loss = {epoch_losses.mean():.4f}")
     
     #### Evaluation
-    recalls, recalls_str = test.test(args, val_ds, model)
+    recalls, recalls_str = test_ensemble.test(args, val_ds, model)
     logging.info(f"Epoch {epoch_num:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, {val_ds}: {recalls_str[:20]}")
     is_best = recalls[0] > best_val_recall1
     best_val_recall1 = max(recalls[0], best_val_recall1)
@@ -165,11 +170,30 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
 logging.info(f"Trained for {epoch_num+1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}")
 
 #### Test best model on test set v1
+
 best_model_state_dict = torch.load(f"{output_folder}/best_model.pth")
 model.load_state_dict(best_model_state_dict)
 
+
+# Test on san francisco
 logging.info(f"Now testing on the test set: {test_ds}")
-recalls, recalls_str = test.test(args, test_ds, model)
+recalls, recalls_str = test_ensemble.test(args, test_ds, model)
 logging.info(f"{test_ds}: {recalls_str}")
 
+# Test on tokyo queries
+test_ds_tokyo = TestDataset("/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/tokyo_xs/test", queries_folder="queries_v1",
+                       positive_dist_threshold=args.positive_dist_threshold)
+logging.info(f"Now testing on the test set TOKYO: {test_ds_tokyo}")
+recalls2, recalls_str2 = test_ensemble.test(args, test_ds_tokyo, model)
+logging.info(f"{test_ds_tokyo}: {recalls_str2}")
+
+#Test on tokyo night queries
+test_tokyo_night = TestDataset("/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/toky_night", queries_folder="night",
+                      positive_dist_threshold=args.positive_dist_threshold)
+logging.info(f"Now testing on the test set TOKYO NIGHT: {test_tokyo_night}")
+recalls3, recalls_str3 = test_ensemble.test(args, test_tokyo_night, model)
+logging.info(f"{test_tokyo_night}: {recalls_str3}")
+
 logging.info("Experiment finished (without any errors)")
+
+
