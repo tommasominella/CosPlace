@@ -85,38 +85,15 @@ class TrainDataset(torch.utils.data.Dataset):
             logging.info(f"ERROR image {image_path} couldn't be opened, it might be corrupted.")
             raise e
         
-        #tensor_image = T.functional.to_tensor(pil_image)
+        
 
-        #DATA AUGMENTATION - RAFFA
+        ## DATA AUGMENTATION 
         transformer = T.Compose([T.ToTensor(),
                                 MyRandomPerspective(distortion_scale=0.2, p=0.2)]
-                                #T.RandomErasing(p=0.1, scale=(0.1, 1))],
-                                #T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                                #T.Resize(512)]
-                                )
+                                #T.RandomErasing(p=0.1, scale=(0.1, 1))]
+                               )
         
-        #logging.info(f"il tensore prima di trasformare è {tensor_image[1][150][150]}")
-        ## transformer = MyRandomPerspective(distortion_scale=0.6, p=1.0)
-        #transformer = T.RandomPerspective(distortion_scale=0.6, p=1.0)
-        #transformer = T.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3))
         transformed = transformer(pil_image)
-        #logging.info(f"il tensore dopo aver trasformato è {transformed[1][150][150]}")
-
-        #logging.info(f"la size dopo nonzero è: {transformed.size()}")
-
-        #transformed_np = transformed.cpu().numpy()
-        #logging.info(f"il vettore np dopo aver trasformato è {transformed_np[1][150][150]}")
-
-        #a, x_nonzero, y_nonzero, _ = np.nonzero(transformed_np)
-        #transformed_np_nonzero = transformed_np[np.min(y_nonzero):np.max(y_nonzero), np.min(x_nonzero):np.max(x_nonzero)]
-
-        #transformed_torch_nonzero = T.functional.to_tensor(transformed_np_nonzero)
-        #logging.info(f"la size dopo nonzero è: {transformed_torch_nonzero.size()}")
-        #tensor_image_aug = T.Resize()
-        
-
-        #assert tensor_image_aug == torch.Size([3, 512, 512]), \
-            #f"Image {image_path} should have shape [3, 512, 512] but has {tensor_image_aug.shape}."
         
         if self.augmentation_device == "cpu":
             transformed = self.transform(transformed)
