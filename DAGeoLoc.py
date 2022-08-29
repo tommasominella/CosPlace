@@ -26,7 +26,8 @@ class DAGeoLocNet(nn.Module):
                 nn.Linear(features_dim, fc_output_dim),
                 L2Norm()
             )
-        self.DA_aggregation = nn.Sequential(               
+        self.DA_aggregation = nn.Sequential(      #RevGrad() for domain cnn
+                RevGrad(alpha = alpha),         
                 L2Norm(),
                 GeM(),
                 Flatten(),
@@ -37,12 +38,12 @@ class DAGeoLocNet(nn.Module):
 
     def forward(self, x, alpha = None):
         x = self.backbone(x)
-        if alpha is not None: #gradient reversal
+        if alpha is not None: #Domain, we apply gradient reversal
                 x_rev = RevGrad(x)
                 DA_out = self.DA_aggregation(x_rev)
                 return DA_out
         else:
-                x = self.aggregation(x)
+                x = self.aggregation(x)  #UTM labels
                 return x
 
 
