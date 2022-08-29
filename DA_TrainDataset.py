@@ -1,5 +1,4 @@
 import os
-from typing import List, Tuple
 import torch
 import random
 import logging
@@ -9,7 +8,6 @@ from PIL import Image
 from PIL import ImageFile
 import torchvision.transforms as T
 from collections import defaultdict
-
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -33,8 +31,6 @@ class DATrainDataset(torch.utils.data.Dataset):
         current_group : int, which one of the groups to consider.
         min_images_per_class : int, minimum number of image in a class.
         """ 
-        
-        
         super().__init__()
         self.M = M
         self.alpha = alpha
@@ -47,42 +43,31 @@ class DATrainDataset(torch.utils.data.Dataset):
         # dataset_name should be either "processed", "small" or "raw", if you're using SF-XL
         dataset_name = os.path.basename(args.dataset_folder)
         filename = f"cache/{dataset_name}_M{M}_N{N}_mipc{min_images_per_class}.torch"
-        #if not os.path.exists(filename):
-        os.makedirs("cache", exist_ok=True)
-        logging.info(f"Cached dataset {filename} does not exist, I'll create it now.")
-        
-        tmp: List[Tuple] = []   
-        tuple_day: Tuple =  (1,1,1)
-        tuple_night: Tuple = (0,0,0)
-        if not night:
-            tmp.append(tuple_day) 
-        else:
-            tmp.append(tuple_night) 
-        
-        logging.info(f"TMP {tmp}")
-        self.classes_ids = tmp.copy() 
-        
-        self.initialize(dataset_folder, M, N, alpha, L, min_images_per_class, filename, night)
-        #elif current_group == 0:
-            #logging.info(f"Using cached dataset {filename}")
+        if not os.path.exists(filename):
+            os.makedirs("cache", exist_ok=True)
+            logging.info(f"Cached dataset {filename} does not exist, I'll create it now.")
+            self.initialize(dataset_folder, M, N, alpha, L, min_images_per_class, filename, night)
+        elif current_group == 0:
+            logging.info(f"Using cached dataset {filename}")
         
         classes_per_group, self.images_per_class = torch.load(filename)
         if current_group >= len(classes_per_group):
             raise ValueError(f"With this configuration there are only {len(classes_per_group)} " +
                              f"groups, therefore I can't create the {current_group}th group. " +
                              "You should reduce the number of groups in --groups_num")
-        #logging.info(f"Images per class: {self.images_per_class}")
+        self.classes_ids = classes_per_group[current_group]
 
-        #logging.info(f"AAAAAAAA {self.classes_ids[0]}")
+        
         if self.augmentation_device == "cpu":
-            self.transform = T.Compose([
-                    T.ColorJitter(brightness=args.brightness,
-                                  contrast=args.contrast,
-                                  saturation=args.saturation,
-                                  hue=args.hue),
-                    T.RandomResizedCrop([512, 512], scale=[1-args.random_resized_crop, 1]),
-                    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                ])
+          self.transform = T.Compose([
+                      T.ColorJitter(brightness=args.brightness,
+                                    contrast=args.contrast,
+                                    saturation=args.saturation,
+                                    hue=args.hue),
+                      T.RandomResizedCrop([512, 512], scale=[1-args.random_resized_crop, 1]),
+                      T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+          ])
+    
     
     def __getitem__(self, class_num):
         # This function takes as input the class_num instead of the index of
@@ -118,37 +103,43 @@ class DATrainDataset(torch.utils.data.Dataset):
         return len(self.classes_ids)
     
     
-    
-    def initialize(self, dataset_folder, M, N, alpha, L, min_images_per_class, filename, night):
+    @staticmethod
+    def initialize(dataset_folder, M, N, alpha, L, min_images_per_class, filename, night, day):
         logging.debug(f"Searching training images in {dataset_folder}")
+
+        if not night: #we take images from "small" dataset
+          images_paths = sorted(glob(f"{dataset_folder}/**/*.jpg", recursive=True))
+        else: #we take images from "night" dataset
+          images_paths = sorted(glob(f"{dataset_folder}/*jpg", recursive=True))
         
-        images_paths = sorted(glob(f"{dataset_folder}/**/*/.jpg", recursive=True))
         logging.debug(f"Found {len(images_paths)} images")
-        
         logging.debug("For each image, get its UTM east, UTM north and heading from its path")
-        images_metadatas = [p.split("@") for p in images_paths]
-        # field 1 is UTM east, field 2 is UTM north, field 9 is heading
-        utmeast_utmnorth_heading = [(m[1], m[2], m[9]) for m in images_metadatas]
-        utmeast_utmnorth_heading = np.array(utmeast_utmnorth_heading).astype(np.float)
         
+        if not night:
+          images_metadatas = [p.split("@") for p in images_paths]
+          # field 1 is UTM east, field 2 is UTM north, field 9 is heading
+          utmeast_utmnorth_heading = [(m[1], m[2], m[9]) for m in images_metadatas]
+          utmeast_utmnorth_heading = np.array(utmeast_utmnorth_heading).astype(np.float)
+        else: # not useful, we copied in order to don't get any error
+          images_metadatas = [p.split("@") for p in images_paths]
+          # field 1 is UTM east, field 2 is UTM north, field 9 is heading
+          utmeast_utmnorth_heading = [(m[1], m[2], m[7].split(".")[0]) for m in images_metadatas]
+          utmeast_utmnorth_heading = np.array(utmeast_utmnorth_heading).astype(np.float)
+
+
         logging.debug("For each image, get class and group to which it belongs")
-        class_id__group_id = [DATrainDataset.get__class_id__group_id(*m, M, alpha, N, L)
+        class_id__group_id = [DATrainDataset.get__class_id__group_id(*m, M, alpha, N, L, night, day)
                               for m in utmeast_utmnorth_heading]
         
         logging.debug("Group together images belonging to the same class")
-
-        
-        #images_per_class = defaultdict(list)
-        #for image_path, (class_id, ) in zip(images_paths, class_id__group_id):
-            #images_per_class[class_id].append(image_path)
-            
+        images_per_class = defaultdict(list)
+        for image_path, (class_id, _) in zip(images_paths, class_id__group_id):
+            images_per_class[class_id].append(image_path)
         
         # Images_per_class is a dict where the key is class_id, and the value
         # is a list with the paths of images within that class.
-        #images_per_class = {k: v for k, v in images_per_class.items() if len(v) >= min_images_per_class}
+        images_per_class = {k: v for k, v in images_per_class.items() if len(v) >= min_images_per_class}
         
-        images_per_class = {self.classes_ids[0]: [images_paths]}
-
         logging.debug("Group together classes belonging to the same group")
         # Classes_per_group is a dict where the key is group_id, and the value
         # is a list with the class_ids belonging to that group.
@@ -166,7 +157,7 @@ class DATrainDataset(torch.utils.data.Dataset):
     
     
     @staticmethod
-    def get__class_id__group_id(utm_east, utm_north, heading, M, alpha, N, L):
+    def get__class_id__group_id(utm_east, utm_north, heading, M, alpha, N, L, night, day):
         """Return class_id and group_id for a given point.
             The class_id is a triplet (tuple) of UTM_east, UTM_north and
             heading (e.g. (396520, 4983800,120)).
@@ -177,10 +168,20 @@ class DATrainDataset(torch.utils.data.Dataset):
         rounded_utm_north = int(utm_north // M * M)
         rounded_heading = int(heading // alpha * alpha)
         
-        class_id = (rounded_utm_east, rounded_utm_north, rounded_heading)
+        if not day and not night:
+          # the class label for UTM prediction
+          class_id = (rounded_utm_east, rounded_utm_north, rounded_heading)
+
+        elif not day and night:
+           # the class label for night domain
+          class_id = (0,0,0)
+
+        else:
+          # the class label for day domain
+          class_id = (1,1,1)
+            
         # group_id goes from (0, 0, 0) to (N, N, L)
         group_id = (rounded_utm_east % (M * N) // M,
                     rounded_utm_north % (M * N) // M,
                     rounded_heading % (alpha * L) // alpha)
         return class_id, group_id
-        
