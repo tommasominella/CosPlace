@@ -56,6 +56,19 @@ You can test a trained model as such
 
 You can download plenty of trained models below.
 
+## Domain Adaptation
+In order to perform the domain adaptation extension, `$ python3 DA_train.py --dataset_folder path/to/sf-xl/processed` must be run. The relative network class DAGeoLocNet and the DTrainDataset class are called inside train
+
+## Data Augmentation
+
+## Optimizers
+This extension has been developed changing the optimizer used inside train.py and with different values of learning rate given in input when running the code.
+
+## Ensembles
+In order to perform the domain adaptation extension, `$ python3 Ensembles_train.py --dataset_folder path/to/sf-xl/processed` must be run. The relative network class DAGeoLocNet and the DTrainDataset class are called inside train
+
+
+
 ## Model Zoo
 
 In the table below are links to models with different backbones and dimensionality of descriptors, trained on SF-XL.
