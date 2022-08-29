@@ -44,16 +44,6 @@ model = model.to(args.device).train()
 criterion = torch.nn.CrossEntropyLoss()
 model_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-## DATA AUGMENTATION start
-#path_aug = "/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/small/train"
-#pil_image_aug = (path_aug)
-#transformer = T.RandomPerspective(distortion_scale=0.6, p=1.0)
-#train_set_folder_aug = transformer(args.train_set_folder)
-#groups = [TrainDataset(args, train_set_folder_aug, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
-                       #current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)]
-## DATA AUGMENTATION end
-
-
 #### Datasets
 groups = [TrainDataset(args, args.train_set_folder, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
                        current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)]
@@ -178,9 +168,24 @@ logging.info(f"Trained for {epoch_num+1:02d} epochs, in total in {str(datetime.n
 best_model_state_dict = torch.load(f"{output_folder}/best_model.pth")
 model.load_state_dict(best_model_state_dict)
 
+# Test on san francisco
 logging.info(f"Now testing on the test set: {test_ds}")
 recalls, recalls_str = test.test(args, test_ds, model)
 logging.info(f"{test_ds}: {recalls_str}")
+
+ # Test on Tokyo queries
+test_ds_tokyo = TestDataset("/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/tokyo_xs/test", queries_folder="queries_v1",
+                       positive_dist_threshold=args.positive_dist_threshold)
+logging.info(f"Now testing on the test set TOKYO: {test_ds_tokyo}")
+recalls2, recalls_str2 = test.test(args, test_ds_tokyo, model)
+logging.info(f"{test_ds_tokyo}: {recalls_str2}")
+
+#Test on Tokyo night queries
+test_tokyo_night = TestDataset("/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/toky_night", queries_folder="night",
+                      positive_dist_threshold=args.positive_dist_threshold)
+logging.info(f"Now testing on the test set TOKYO NIGHT: {test_tokyo_night}")
+recalls3, recalls_str3 = test.test(args, test_tokyo_night, model)
+logging.info(f"{test_tokyo_night}: {recalls_str3}")
 
 logging.info("Experiment finished (without any errors)")
 
