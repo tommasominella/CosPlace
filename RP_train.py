@@ -1,5 +1,5 @@
 import os
-import sys #importo librerie
+import sys 
 import torch
 import logging
 from math import nan
@@ -14,7 +14,7 @@ from datetime import datetime
 import torchvision
 torch.backends.cudnn.benchmark= True  # Provides a speedup
 
-import test #importo le altre funzioni di CosPlace
+import test 
 import util
 import parser
 import commons
@@ -22,12 +22,13 @@ import cosface_loss
 import augmentations
 import network
 from test_dataset import TestDataset
+#import of class TrainDataset from the new file for this task
 from RP_train_dataset import TrainDataset
 
-args = parser.parse_arguments() #la funzione parser definisce gli argomenti di default
-start_time = datetime.now() #tic
-output_folder = f"logs/{args.save_dir}/{start_time.strftime('%Y-%m-%d_%H-%M-%S')}" #train crea sotto model la cartella logs, dove mette tutti gli output
-commons.make_deterministic(args.seed) #seed è un argomento (output di parser) e ha come valore di default 0 (line 50 di parser.py)
+args = parser.parse_arguments() 
+start_time = datetime.now()
+output_folder = f"logs/{args.save_dir}/{start_time.strftime('%Y-%m-%d_%H-%M-%S')}"
+commons.make_deterministic(args.seed) 
 commons.setup_logging(output_folder, console="debug")
 logging.info(" ".join(sys.argv)) 
 logging.info(f"Arguments: {args}")
@@ -43,16 +44,15 @@ if args.resume_model != None:
     model_state_dict = torch.load(args.resume_model)
     model.load_state_dict(model_state_dict)
 
-model = model.to(args.device).train() #ti dice dove runnare train.py, mette il modello sull'hardware selezionato (cuda)
+model = model.to(args.device).train() 
 
 #### Optimizer
-criterion = torch.nn.CrossEntropyLoss() #loss function per la classification
-model_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr) #Adam è un tipo di loss function, model.parameters() contains all the parameters we want to optimize during training
+criterion = torch.nn.CrossEntropyLoss() 
+model_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr) 
 
 #### Datasets
-#logging.info(f"train_set_folder prima di traindataset normale è {args.train_set_folder}")
 groups = [TrainDataset(args, args.train_set_folder, M=args.M, alpha=args.alpha, N=args.N, L=args.L,
-                       current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)] #TrainDataset è una classe definita in train_dataset.py
+                       current_group=n, min_images_per_class=args.min_images_per_class) for n in range(args.groups_num)] #TrainDataset defined in RP_train_dataset.py
 logging.info(f"provo a stampare groups: {groups}")
 # Each group has its own classifier, which depends on the number of classes in the group
 classifiers = [cosface_loss.MarginCosineProduct(args.fc_output_dim, len(group)) for group in groups]
@@ -100,7 +100,7 @@ if args.augmentation_device == "cuda":
 if args.use_amp16:
     scaler = torch.cuda.amp.GradScaler()
 
-for epoch_num in range(start_epoch_num, args.epochs_num): #start_epoch_num di default è 0
+for epoch_num in range(start_epoch_num, args.epochs_num):
     
     #### Train
     epoch_start_time = datetime.now()
@@ -113,18 +113,18 @@ for epoch_num in range(start_epoch_num, args.epochs_num): #start_epoch_num di de
                                             batch_size=args.batch_size, shuffle=True,
                                             pin_memory=(args.device=="cuda"), drop_last=True)
     
-    dataloader_iterator = iter(dataloader) #converto dataloader in un iteratore (lista di indici di iterazione)
-    model = model.train() #funzione di torch, non sta chiamando train.py, è solo il modello che si mette in fase di train
+    dataloader_iterator = iter(dataloader)
+    model = model.train() 
     
     epoch_losses = np.zeros((0,1), dtype=np.float32) 
-    for iteration in tqdm(range(args.iterations_per_epoch), ncols=100): #quante iterazioni facciamo per ogni epoca
+    for iteration in tqdm(range(args.iterations_per_epoch), ncols=100): 
         images, targets, _ = next(dataloader_iterator)
         images, targets = images.to(args.device), targets.to(args.device)
         
         if args.augmentation_device == "cuda":
             images = gpu_augmentation(images)
         
-        model_optimizer.zero_grad() #setta il gradiente a zero prima di cominciare la backpropagation
+        model_optimizer.zero_grad() 
         classifiers_optimizers[current_group_num].zero_grad()
         
         if not args.use_amp16:
@@ -138,7 +138,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num): #start_epoch_num di de
             classifiers_optimizers[current_group_num].step()
         else:  # Use AMP 16
             with torch.cuda.amp.autocast():
-                descriptors = model(images) #salvo i descrittori
+                descriptors = model(images) 
                 output = classifiers[current_group_num](descriptors, targets) 
                 loss = criterion(output, targets)
             scaler.scale(loss).backward()
@@ -158,7 +158,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num): #start_epoch_num di de
     #### Evaluation
     recalls, recalls_str = test.test(args, val_ds, model)
     logging.info(f"Epoch {epoch_num:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, {val_ds}: {recalls_str[:20]}")
-    is_best = recalls[0] >= best_val_recall1 #is_best è solo True o False, non prende un valore
+    is_best = recalls[0] >= best_val_recall1 
     best_val_recall1 = max(recalls[0], best_val_recall1)
     # Save checkpoint, which contains all training parameters
     util.save_checkpoint({"epoch_num": epoch_num + 1,
