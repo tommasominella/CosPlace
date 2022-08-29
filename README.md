@@ -65,7 +65,9 @@ In order to perform the domain adaptation extension, `$ python3 DA_train.py --da
 This extension has been developed changing the optimizer used inside train.py and with different values of learning rate given in input when running the code.
 
 ## Ensembles
-In order to perform the domain adaptation extension, `$ python3 Ensembles_train.py --dataset_folder path/to/sf-xl/processed` must be run. The relative network class DAGeoLocNet and the DTrainDataset class are called inside train
+In order to perform the domain adaptation extension, `$ python3 Ensembles_train.py --dataset_folder path/to/sf-xl/processed` must be run. The relative network class GeoLocalizationNet_Ensemble inside Ensemble_network is called. The evaluation and the test are performed importing Ensemble_test.py.
+
+In the code the second type of ensembles, called ENS-D in the report, is implemented. For running the first type the line commented after "# ENS-F" in the code must be uncommented and used instead of the line following "# ENS-D" in each of the files relative to the ensemble implementation.
 
 
 
