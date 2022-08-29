@@ -8,7 +8,7 @@ from datetime import datetime
 import torchvision.transforms as T
 torch.backends.cudnn.benchmark= True  # Provides a speedup
 
-import test_ensemble
+import Ensemble_test
 import util
 import parser
 import commons
@@ -153,7 +153,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
                  f"loss = {epoch_losses.mean():.4f}")
     
     #### Evaluation
-    recalls, recalls_str = test_ensemble.test(args, val_ds, model)
+    recalls, recalls_str = Ensemble_test.test(args, val_ds, model)
     logging.info(f"Epoch {epoch_num:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, {val_ds}: {recalls_str[:20]}")
     is_best = recalls[0] > best_val_recall1
     best_val_recall1 = max(recalls[0], best_val_recall1)
@@ -177,21 +177,21 @@ model.load_state_dict(best_model_state_dict)
 
 # Test on san francisco
 logging.info(f"Now testing on the test set: {test_ds}")
-recalls, recalls_str = test_ensemble.test(args, test_ds, model)
+recalls, recalls_str = Ensemble_test.test(args, test_ds, model)
 logging.info(f"{test_ds}: {recalls_str}")
 
 # Test on tokyo queries
 test_ds_tokyo = TestDataset("/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/tokyo_xs/test", queries_folder="queries_v1",
                        positive_dist_threshold=args.positive_dist_threshold)
 logging.info(f"Now testing on the test set TOKYO: {test_ds_tokyo}")
-recalls2, recalls_str2 = test_ensemble.test(args, test_ds_tokyo, model)
+recalls2, recalls_str2 = Ensemble_test.test(args, test_ds_tokyo, model)
 logging.info(f"{test_ds_tokyo}: {recalls_str2}")
 
 #Test on tokyo night queries
 test_tokyo_night = TestDataset("/content/drive/MyDrive/MLDL2022/Project3/CosPlace/datasets/toky_night", queries_folder="night",
                       positive_dist_threshold=args.positive_dist_threshold)
 logging.info(f"Now testing on the test set TOKYO NIGHT: {test_tokyo_night}")
-recalls3, recalls_str3 = test_ensemble.test(args, test_tokyo_night, model)
+recalls3, recalls_str3 = Ensemble_test.test(args, test_tokyo_night, model)
 logging.info(f"{test_tokyo_night}: {recalls_str3}")
 
 logging.info("Experiment finished (without any errors)")
