@@ -31,7 +31,7 @@ class DAGeoLocNet(nn.Module):
                 L2Norm(),
                 GeM(),
                 Flatten(),
-                nn.Linear(features_dim, 2),
+                nn.Linear(features_dim, fc_output_dim),
                 L2Norm()
             )
    
