@@ -61,8 +61,8 @@ In order to perform the domain adaptation extension, `$ python3 DA_train.py --da
 
 ## Data Augmentation
 
-## Optimizers
-This extension has been developed changing the optimizer used inside train.py and with different values of learning rate given in input when running the code.
+## Optimizers & Schedulers
+This extension has been developed by changing the optimizers used inside train.py, also varying learning rates and weight decay parameters. We also added CosineAnnealingLR as scheduler for optimizers (lines 48, 58 in train.py).
 
 ## Ensembles
 In order to perform the domain adaptation extension, `$ python3 Ensembles_train.py --dataset_folder path/to/sf-xl/processed` must be run. The relative network class GeoLocalizationNet_Ensemble inside Ensemble_network is called. The evaluation and the test are performed importing Ensemble_test.py.
